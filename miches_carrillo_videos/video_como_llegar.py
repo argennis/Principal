@@ -151,21 +151,30 @@ def view(cam):
     hw, hh = W / 2 / k, H / 2 / k
     return MAP.transform((W, H), Image.EXTENT, [(cx - hw - X0) * S, (cy - hh - Y0) * S, (cx + hw - X0) * S, (cy + hh - Y0) * S], Image.BILINEAR)
 
+# ------------- address and references shown in the video -------------
+DIRECCION = "Priv. Prisciliano Sánchez #28"
+COLONIA = "Col. Los Tabachines"
+REFERENCIAS = ["Atrás del Penalty", "Enfrente de Bar El Tropi"]
+
 # ------------- routes (only legal moves per the one-way arrows) -------------
 PIN = (608, 1036)   # the spot marked on Priv. Prisciliano Sánchez
 TO_PIN = [(660, 652), (790, 642), (812, 655), (760, 750), (700, 860), (640, 975), PIN]
+# each step: (route point where its card appears, text, icon "recto" | "der" | "izq")
 ROUTES = [
     dict(name="Desde el sur", pts=[(388, 1560), (393, 1300), (398, 1168), (430, 1000), (437, 800), (440, 652)] + TO_PIN,
-         steps=[(0, "Sube por Av. México"), (5, "Gira a la derecha"), (7, "Gira a la derecha en Priv. Prisciliano Sánchez")]),
+         steps=[(0, "Sube por Av. México", "recto"), (5, "Gira a la derecha en Av. Prisciliano Sánchez", "der"),
+                (7, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
     dict(name="Desde el poniente", pts=[(-40, 636), (200, 636), (400, 637), (440, 652)] + TO_PIN,
-         steps=[(0, "Avanza hacia Av. México"), (2, "Cruza Av. México y sigue derecho"), (5, "Gira a la derecha en Priv. Prisciliano Sánchez")]),
+         steps=[(0, "Avanza por Av. Prisciliano Sánchez", "recto"), (2, "Cruza Av. México y sigue derecho", "recto"),
+                (5, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
     dict(name="Desde el norte", pts=[(530, 330), (522, 420), (505, 500), (470, 560), (430, 605), (412, 640), (440, 652)] + TO_PIN,
-         steps=[(0, "Baja por Av. México"), (5, "Gira a la izquierda"), (8, "Gira a la derecha en Priv. Prisciliano Sánchez")]),
+         steps=[(0, "Baja por Av. México", "recto"), (5, "Gira a la izquierda en Av. Prisciliano Sánchez", "izq"),
+                (8, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
 ]
 for r in ROUTES:
     p = r["pts"]; seg = [math.dist(p[i], p[i + 1]) for i in range(len(p) - 1)]
     r["seg"] = seg; r["total"] = sum(seg)
-    r["fr"] = [sum(seg[:i]) / r["total"] for i, _ in r["steps"]]
+    r["fr"] = [sum(seg[:i]) / r["total"] for i, *_ in r["steps"]]
     xs = [q[0] for q in p] + [PIN[0]]; ys = [q[1] for q in p] + [PIN[1] - 120]
     bw = max(xs) - min(xs) + 180; bh = max(ys) - min(ys) + 240
     k = clamp(min(960 / bw, 1150 / bh), 1.0, 1.9)
@@ -179,13 +188,110 @@ def route_upto(r, f):
             a, b = Q[i], Q[i + 1]; out.append((lerp(a[0], b[0], L / s), lerp(a[1], b[1], L / s))); break
     return out
 
+# ------------- sprites -------------
+INTER = P.INTER
+_k = {}
+def _font(size): return ImageFont.truetype(INTER, size)
+def _fit(txt, size, maxw):
+    while _font(size).getlength(txt) > maxw and size > 20: size -= 2
+    return _font(size)
+def _wrap(f, txt, maxw):
+    if f.getlength(txt) <= maxw: return [txt]
+    words = txt.split(); best = None
+    for i in range(1, len(words)):
+        a, b = " ".join(words[:i]), " ".join(words[i:])
+        m = max(f.getlength(a), f.getlength(b))
+        if best is None or m < best[0]: best = (m, [a, b])
+    return best[1]
+def _center_text(d, f, txt, cx, cy, fill):
+    bb = f.getbbox(txt); d.text((cx - (bb[0] + bb[2]) / 2, cy - (bb[1] + bb[3]) / 2), txt, font=f, fill=fill)
+def _card(w, h):
+    im = Image.new("RGBA", (w + 14, h + 14), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([14, 14, w + 13, h + 13], radius=44, fill=RED)
+    d.rounded_rectangle([0, 0, w, h], radius=44, fill=DARK)
+    return im, d
+
+def icono(kind, size=96):
+    """Red circle with a white arrow: straight on, turn right or turn left."""
+    key = ("ico", kind, size)
+    if key in _k: return _k[key]
+    n = size * 4; u = n / 100
+    im = Image.new("RGBA", (n, n), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.ellipse([0, 0, n - 1, n - 1], fill=RED)
+    w = int(13 * u)
+    if kind == "recto":
+        d.line([(50 * u, 82 * u), (50 * u, 44 * u)], fill=WHITE, width=w)
+        d.polygon([(27 * u, 48 * u), (73 * u, 48 * u), (50 * u, 17 * u)], fill=WHITE)
+    else:
+        sg = 1 if kind == "der" else -1
+        def x(v): return 50 * u + sg * (v - 50) * u
+        d.line([(x(34), 84 * u), (x(34), 52 * u), (x(64), 52 * u)], fill=WHITE, width=w, joint="curve")
+        d.ellipse([x(34) - w / 2, 52 * u - w / 2, x(34) + w / 2, 52 * u + w / 2], fill=WHITE)
+        d.polygon([(x(60), 29 * u), (x(60), 75 * u), (x(86), 52 * u)], fill=WHITE)
+    im = im.resize((size, size), Image.LANCZOS); _k[key] = im; return im
+
+def paso_card(n, txt, icon):
+    key = ("paso", n, txt, icon)
+    if key in _k: return _k[key]
+    f = _font(52); lines = _wrap(f, txt, 680)
+    w, lh = 1000, 62; h = 150 if len(lines) == 1 else 186
+    im, d = _card(w, h)
+    d.ellipse([24, h / 2 - 50, 124, h / 2 + 50], fill=YEL)
+    nf = ImageFont.truetype(R.FONT, 76); _center_text(d, nf, str(n), 74, h / 2, DARK)
+    y0 = h / 2 - lh * len(lines) / 2
+    for i, ln in enumerate(lines):
+        bb = f.getbbox(ln); d.text((150 - bb[0], y0 + i * lh + (lh - (bb[1] + bb[3])) / 2), ln, font=f, fill=WHITE)
+    ic = icono(icon); im.alpha_composite(ic, (w - 26 - ic.width, int(h / 2 - ic.height / 2)))
+    _k[key] = im; return im
+
+def tarjeta_direccion():
+    if "dir" in _k: return _k["dir"]
+    w, h = 1000, 200
+    im, d = _card(w, h)
+    _center_text(d, _fit(DIRECCION, 62, w - 80), DIRECCION, w / 2, 72, WHITE)
+    _center_text(d, _font(44), COLONIA, w / 2, 148, YEL)
+    _k["dir"] = im; return im
+
+def tarjeta_final():
+    if "fin" in _k: return _k["fin"]
+    w, h = 1000, 360
+    im, d = _card(w, h)
+    t1 = R.text_sprite("Te esperamos", 100, YEL, shadow=None)
+    im.alpha_composite(t1, (int(w / 2 - t1.width / 2), 0))
+    _center_text(d, _fit(DIRECCION, 56, w - 80), DIRECCION, w / 2, 172, WHITE)
+    _center_text(d, _font(42), COLONIA, w / 2, 236, YEL)
+    refs = "  ·  ".join(REFERENCIAS)
+    _center_text(d, _fit(refs, 36, w - 80), refs, w / 2, 304, (235, 222, 210))
+    _k["fin"] = im; return im
+
+def chip(txt, size=44):
+    """White pill with a red dot, for the landmarks next to the pin."""
+    key = ("chip", txt, size)
+    if key in _k: return _k[key]
+    f = _font(size); tw = f.getlength(txt)
+    w, h = int(tw + 120), size + 46
+    im = Image.new("RGBA", (w + 10, h + 10), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([10, 10, w + 9, h + 9], radius=h // 2, fill=DARK)
+    d.rounded_rectangle([0, 0, w, h], radius=h // 2, fill=WHITE, outline=DARK, width=6)
+    d.ellipse([28, h / 2 - 14, 56, h / 2 + 14], fill=RED)
+    bb = f.getbbox(txt); d.text((80 - bb[0], h / 2 - (bb[1] + bb[3]) / 2), txt, font=f, fill=DARK)
+    _k[key] = im; return im
+
+def brand_line(txt, size, fill, stroke=9, bang=False, maxw=1000):
+    while True:
+        spr = R.text_sprite(txt, size, fill, stroke, DARK, bang=bang)
+        if spr.width <= maxw or size <= 60: return spr
+        size -= 6
+
 # ------------- timeline -------------
-OV = 2.0; RT = 5.0; OUT = 3.6; NR = len(ROUTES)
+HOOK = 1.4                                    # hook scene before the map
+OV = 2.2; RT = 3.4; OUT = 3.4; NR = len(ROUTES)
 T_R = [OV + i * RT for i in range(NR)]
 T_END = OV + NR * RT
 MAPDUR = T_END + OUT
-OV0 = (500, 900, 1.12); OV1 = (500, 900, 1.25)
+CLOSE = (PIN[0], PIN[1] - 20, 1.9)            # opening close-up on the pin
 FINAL = (PIN[0] - 130 / 2.2, PIN[1] - 220 / 2.2, 2.2)
+IRIS = 0.35                                    # circle wipe from the hook into the map
 def mix(a, b, x): return tuple(lerp(a[i], b[i], x) for i in range(3))
 def clamp_cam(cam):
     cx, cy, k = cam
@@ -195,15 +301,23 @@ def clamp_cam(cam):
     return (cx, cy, k)
 def cam_at(t): return clamp_cam(_cam_at(t))
 def _cam_at(t):
-    if t < OV: return mix(OV0, OV1, ease_in_out(prog(t, 0, OV)))
+    if t < OV:
+        close = (CLOSE[0], CLOSE[1], CLOSE[2] + 0.08 * prog(t, 0, 1.4))      # slow push-in
+        return mix(close, ROUTES[0]["cam"], ease_in_out(prog(t, 1.4, OV - 1.4)))
     if t < T_END:
         i = min(NR - 1, int((t - OV) // RT))
-        prev = OV1 if i == 0 else ROUTES[i - 1]["cam"]
-        return mix(prev, ROUTES[i]["cam"], ease_in_out(prog(t, T_R[i], 1.0)))
-    return mix(ROUTES[-1]["cam"], FINAL, ease_in_out(prog(t, T_END, 1.1)))
+        prev = ROUTES[max(0, i - 1)]["cam"]
+        return mix(prev, ROUTES[i]["cam"], ease_in_out(prog(t, T_R[i], 0.6)))
+    return mix(ROUTES[-1]["cam"], FINAL, ease_in_out(prog(t, T_END, 0.9)))
 
-DRAW_A, DRAW_B = 0.7, 3.9
+DRAW_A, DRAW_B = 0.35, 2.75
 def route_frac(i, t): return ease_in_out(prog(t, T_R[i] + DRAW_A, DRAW_B - DRAW_A))
+def step_at(i, t):
+    f = route_frac(i, t); n = 0
+    for j, fr in enumerate(ROUTES[i]["fr"]):
+        if f >= fr - 0.015: n = j
+    return n
+RIPPLES = [0.55, 1.05, T_END + 0.9, T_END + 1.6, T_END + 2.3]
 
 def sceneMap(t):
     cam = cam_at(t); k = cam[2]
@@ -212,9 +326,13 @@ def sceneMap(t):
     def put(txt, p, rot, size):
         s = to_screen(p, cam); R.paste(c, P.label(txt, size, DARK), s[0], s[1], ls, rot=rot)
     put("Av. México", (418, 860), 90, 36); put("Av. México", (388, 1420), 90, 36)
+    put("Av. Prisciliano Sánchez", (285, 621), 0, 30); put("Av. Prisciliano Sánchez", (985, 468), 35, 28)
     put("Priv. Prisciliano Sánchez", (533, 1245), 71, 30)
+    put("Vallarta 750", (-4, 1060), 85, 26); put("María Montessori", (110, 1586), 1, 26)
+    put("Arrecifes de Cozumel", (483, 170), 90, 24)
     put("Lago Erie", (712, 1440), 86, 26); put("Río Volga", (850, 1300), -5, 26)
     put("Río de Diamante", (880, 960), 53, 24)
+    # routes: the current one bright with an arrow at its tip, the finished ones faded
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
     d = ImageDraw.Draw(c)
     lw = max(8, int(9 * k)); heads = []
@@ -225,18 +343,30 @@ def sceneMap(t):
         if (T_R[i] <= t < T_R[i] + RT) or t >= T_END:
             road_line(d, pts, DARK, lw + 10); road_line(d, pts, RED, lw)
             s0 = pts[0]; d.ellipse([s0[0] - 15, s0[1] - 15, s0[0] + 15, s0[1] + 15], fill=DARK)
-            if f < 1: heads.append(pts[-1])
+            if f < 1 and len(pts) >= 2: heads.append((pts[-2], pts[-1]))
         else:
             od.line(pts, fill=RED + (110,), width=lw, joint="curve")
     c.alpha_composite(ov); d = ImageDraw.Draw(c)
-    for hx, hy in heads:
-        rr = 18 * clamp(k / 1.6, 0.8, 1.4) * (1 + 0.15 * math.sin(t * 12))
-        d.ellipse([hx - rr - 6, hy - rr - 6, hx + rr + 6, hy + rr + 6], fill=DARK)
-        d.ellipse([hx - rr, hy - rr, hx + rr, hy + rr], fill=YEL)
-    pp = prog(t, 0.3, 0.55)
+    for a, b in heads:
+        L = math.dist(a, b) or 1; ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+        s = 1.25 * clamp(k / 1.6, 0.8, 1.4) * (1 + 0.1 * math.sin(t * 14))
+        def tri(sz):
+            return [(b[0] + ux * 24 * sz, b[1] + uy * 24 * sz),
+                    (b[0] - ux * 14 * sz - uy * 18 * sz, b[1] - uy * 14 * sz + ux * 18 * sz),
+                    (b[0] - ux * 14 * sz + uy * 18 * sz, b[1] - uy * 14 * sz - ux * 18 * sz)]
+        d.polygon(tri(s * 1.45), fill=DARK); d.polygon(tri(s), fill=YEL)
+    # pin: drops in with a bounce, pulses when a route arrives, ripples on the ground
+    s = to_screen(PIN, cam); pin = P.pin_sprite(); sc = 1.4
+    pp = prog(t, 0.2, 0.4)
     if pp > 0:
-        pin = P.pin_sprite(); s = to_screen(PIN, cam); sc = 1.4
-        y = lerp(s[1] - 1000, s[1] - pin.height / 2 * sc + 8, ease_out(pp))
+        rp = Image.new("RGBA", (W, H), (0, 0, 0, 0)); rd = ImageDraw.Draw(rp)
+        for t0 in RIPPLES:
+            a = t - t0
+            if 0 < a < 1.0:
+                rr = lerp(30, 230, ease_out(a)) * k / 1.9
+                rd.ellipse([s[0] - rr, s[1] - rr * 0.42, s[0] + rr, s[1] + rr * 0.42], outline=RED + (int(230 * (1 - a)),), width=9)
+        c.alpha_composite(rp)
+        y = lerp(s[1] - 1100, s[1] - pin.height / 2 * sc + 8, back_out(pp, 1.2))
         pulse = 1.0
         for i in range(NR):
             u = t - (T_R[i] + DRAW_B)
@@ -244,29 +374,72 @@ def sceneMap(t):
         sh = Image.new("RGBA", (200, 70), (0, 0, 0, 0)); ImageDraw.Draw(sh).ellipse([20, 15, 180, 55], fill=DARK + (110,))
         c.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)), (int(s[0] - 100), int(s[1] - 35)))
         R.paste(c, pin, s[0], y - (pulse - 1) * pin.height * sc / 2, sc * pulse)
-    if t < OV + 0.3:
-        R.paste(c, P.header("Llega sin perderte"), W / 2, 230, back_out(prog(t, 0.2, 0.4)) * (1 - prog(t, OV - 0.1, 0.3)))
+        for i in range(NR):                     # "¡Llegaste!" when a route reaches the pin
+            u = t - (T_R[i] + DRAW_B)
+            if 0 < u < 0.55:
+                R.paste(c, P.label("¡Llegaste!", 46, DARK, YEL), s[0], s[1] - pin.height * sc * pulse - 40,
+                        back_out(prog(u, 0, 0.2)) * (1 - prog(u, 0.4, 0.15)))
+    # opening: "Estamos en" + address on top, landmarks under the pin
+    if t < OV:
+        out = ease_in_out(prog(t, 1.3, 0.3))
+        R.paste(c, brand_line("Estamos en", 130, WHITE), W / 2, 210 - 400 * out, back_out(prog(t, 0.25, 0.35)))
+        R.paste(c, tarjeta_direccion(), W / 2, 430 - 700 * out, back_out(prog(t, 0.4, 0.35)))
+        for j, ref in enumerate(REFERENCIAS):
+            R.paste(c, chip(ref), W / 2, s[1] + 120 + j * 112, back_out(prog(t, 0.65 + j * 0.18, 0.3)) * (1 - out))
+    # route header, 1-2-3 dots and step cards
     for i, r in enumerate(ROUTES):
         if T_R[i] <= t < T_R[i] + RT:
-            out = prog(t, T_R[i] + RT - 0.25, 0.25)
-            R.paste(c, P.header(r["name"]), W / 2, 230, back_out(prog(t, T_R[i] + 0.15, 0.4)) * (1 - out))
-            f = route_frac(i, t); n = 0
-            for j, fr in enumerate(r["fr"]):
-                if f >= fr - 0.015: n = j
+            out = prog(t, T_R[i] + RT - 0.22, 0.22)
+            R.paste(c, P.header(r["name"]), W / 2, 220, back_out(prog(t, T_R[i] + 0.1, 0.35)) * (1 - out))
+            for j in range(NR):
+                x = W / 2 + (j - (NR - 1) / 2) * 56; on = j == i; rr = 17 if on else 12
+                d = ImageDraw.Draw(c)
+                d.ellipse([x - rr - 5, 360 - rr - 5, x + rr + 5, 360 + rr + 5], fill=DARK)
+                d.ellipse([x - rr, 360 - rr, x + rr, 360 + rr], fill=RED if on else WHITE)
             if t >= T_R[i] + DRAW_A - 0.3:
-                card = P.step_card(n + 1, r["steps"][n][1])
+                n = step_at(i, t)
+                since = 0.0                     # how long ago the card changed (pop effect)
+                while since < 0.3 and n > 0 and step_at(i, t - since - 1 / FPS) == n: since += 1 / FPS
+                pop = 1.0 if n == 0 or since >= 0.3 else lerp(0.82, 1.0, back_out(prog(since, 0, 0.22)))
+                card = paso_card(n + 1, r["steps"][n][1], r["steps"][n][2])
                 inn = ease_out(prog(t, T_R[i] + DRAW_A - 0.3, 0.3))
-                R.paste(c, card, W / 2 - 1200 * ease_out(out), lerp(H + 200, 1740, inn) - (card.height - 164) / 2)
-    if t >= T_END + 0.6:
-        u = t - T_END - 0.6
-        R.paste(c, P._c.setdefault("logo", R.scaled(R.LOGO, 380)), W / 2, 290, back_out(prog(u, 0, 0.45)))
-        R.paste(c, P._outro_card(), W / 2, lerp(H + 200, 1720, ease_out(prog(u, 0.2, 0.35))))
-        R.paste(c, P._c.setdefault("msm", R.scaled(R.MASCOT, 520)), lerp(-300, 240, ease_out(prog(u, 0.5, 0.5))), 1330 + math.sin(u * 4) * 8)
+                R.paste(c, card, W / 2 - 1200 * ease_out(out), lerp(H + 200, 1740, inn) - (card.height - 164) / 2, pop)
+    # ending: logo, mascot and the full address with the landmarks
+    if t >= T_END + 0.4:
+        u = t - T_END - 0.4
+        R.paste(c, P._c.setdefault("logo", R.scaled(R.LOGO, 380)), W / 2, 290, back_out(prog(u, 0, 0.4)))
+        R.paste(c, P._c.setdefault("msm", R.scaled(R.MASCOT, 480)), lerp(-300, 220, ease_out(prog(u, 0.45, 0.45))), 1250 + math.sin(u * 4) * 8)
+        R.paste(c, tarjeta_final(), W / 2, lerp(H + 300, 1690, ease_out(prog(u, 0.15, 0.35))))
+    # circle wipe out of the hook
+    if t < IRIS:
+        rr = 1400 * ease_in_out(t / IRIS)
+        mask = Image.new("L", (W, H), 255); md = ImageDraw.Draw(mask)
+        md.ellipse([s[0] - rr, 1000 - rr, s[0] + rr, 1000 + rr], fill=0)
+        c = Image.composite(_hook_last(), c, mask)
+        ImageDraw.Draw(c).ellipse([s[0] - rr, 1000 - rr, s[0] + rr, 1000 + rr], outline=DARK, width=18)
     return c
 
-INTRO = 2.5
+# ------------- hook: grabs attention in the first second -------------
+LOGO_H = R.scaled(R.LOGO, 430)
+MASC_H = R.scaled(R.MASCOT, 760)
+def sceneHook(t):
+    c = R.pattern_bg(R.ZZ_RED, t, speed=90)
+    sh = math.sin(t * 90) * 16 * (1 - prog(t, 0.2, 0.25)) if t > 0.2 else 0      # impact shake
+    p = prog(t, 0, 0.22)
+    sc = lerp(2.6, 1.0, ease_out(p)) if p < 1 else 1 + 0.05 * math.sin((t - 0.22) * 10) * math.exp(-(t - 0.22) * 4)
+    R.paste(c, LOGO_H, W / 2 + sh, 330 + sh * 0.5, sc, alpha=clamp(p * 3))
+    R.paste(c, brand_line("Ven por la tuya", 130, YEL, bang=True), W / 2 + sh, 700, back_out(prog(t, 0.3, 0.3)))
+    R.paste(c, P.label("Te decimos cómo llegar", 56, DARK, YEL), W / 2, 870, back_out(prog(t, 0.5, 0.3)))
+    q = prog(t, 0.35, 0.4)
+    R.shadow_ellipse(c, W / 2, 1790, 260 * q, 34)
+    R.paste(c, MASC_H, W / 2, lerp(H + 500, 1400, ease_out(q)) + (math.sin((t - 0.75) * 6) * 8 if t > 0.75 else 0))
+    return c
+def _hook_last():
+    if "hook" not in _k: _k["hook"] = sceneHook(HOOK - 1 / FPS)
+    return _k["hook"]
+
 CH = MAPDUR / 3
-SCENES = [("q0", P.sceneA, 0, INTRO)] + [(f"q{i+1}", sceneMap, i * CH, CH) for i in range(3)]
+SCENES = [("q0", sceneHook, 0, HOOK)] + [(f"q{i+1}", sceneMap, i * CH, CH) for i in range(3)]
 
 def render(name, fn, t0, dur):
     tmp = os.path.join(DIR, name + ".tmp.mp4"); out = os.path.join(DIR, name + ".mp4")
@@ -279,12 +452,12 @@ def render(name, fn, t0, dur):
 
 if __name__ == "__main__":
     if sys.argv[1] == "frames":
-        times = [1.5] + [T_R[i] + 3.0 for i in range(NR)] + [T_END + 3.4]
-        s = Image.new("RGB", (360 * len(times), 640))
-        for i, t in enumerate(times):
-            s.paste(sceneMap(t).convert("RGB").resize((360, 640)), (i * 360, 0))
+        shots = [(sceneHook, 0.9), (sceneMap, 1.0)] + [(sceneMap, T_R[i] + 2.0) for i in range(NR)] + [(sceneMap, T_END + 2.8)]
+        s = Image.new("RGB", (360 * len(shots), 640))
+        for i, (fn, t) in enumerate(shots):
+            s.paste(fn(t).convert("RGB").resize((360, 640)), (i * 360, 0))
         s.save(os.path.join(DIR, "vista_previa_como_llegar.jpg"), quality=85)
-        print("MAPDUR", MAPDUR, [r["cam"] for r in ROUTES])
+        print("Duración total: %.1f s" % (HOOK + MAPDUR))
     else:
         for nm, fn, t0, dur in SCENES:
             if nm == sys.argv[1]: render(nm, fn, t0, dur)
