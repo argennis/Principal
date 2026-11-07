@@ -1,4 +1,4 @@
-import math, sys, os, subprocess
+import math, random, sys, os, subprocess
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import video_promo as R
@@ -284,7 +284,6 @@ def brand_line(txt, size, fill, stroke=9, bang=False, maxw=1000):
         size -= 6
 
 # ------------- timeline -------------
-HOOK = 1.4                                    # hook scene before the map
 OV = 2.2; RT = 3.4; OUT = 3.4; NR = len(ROUTES)
 T_R = [OV + i * RT for i in range(NR)]
 T_END = OV + NR * RT
@@ -317,7 +316,8 @@ def step_at(i, t):
     for j, fr in enumerate(ROUTES[i]["fr"]):
         if f >= fr - 0.015: n = j
     return n
-RIPPLES = [0.55, 1.05, T_END + 0.9, T_END + 1.6, T_END + 2.3]
+RIPPLES = [0.4, 0.95, T_END + 0.9, T_END + 1.6, T_END + 2.3]
+MAPA_GOLPES = [(0.38, 14), (T_END + 0.58, 10)]           # pin lands, final logo lands
 
 def sceneMap(t):
     cam = cam_at(t); k = cam[2]
@@ -410,6 +410,7 @@ def sceneMap(t):
         R.paste(c, P._c.setdefault("logo", R.scaled(R.LOGO, 380)), W / 2, 290, back_out(prog(u, 0, 0.4)))
         R.paste(c, P._c.setdefault("msm", R.scaled(R.MASCOT, 480)), lerp(-300, 220, ease_out(prog(u, 0.45, 0.45))), 1250 + math.sin(u * 4) * 8)
         R.paste(c, tarjeta_final(), W / 2, lerp(H + 300, 1690, ease_out(prog(u, 0.15, 0.35))))
+    c = aplicar_sacudida(c, t, MAPA_GOLPES)
     # circle wipe out of the hook
     if t < IRIS:
         rr = 1400 * ease_in_out(t / IRIS)
@@ -419,20 +420,85 @@ def sceneMap(t):
         ImageDraw.Draw(c).ellipse([s[0] - rr, 1000 - rr, s[0] + rr, 1000 + rr], outline=DARK, width=18)
     return c
 
-# ------------- hook: grabs attention in the first second -------------
-LOGO_H = R.scaled(R.LOGO, 430)
-MASC_H = R.scaled(R.MASCOT, 760)
+# ------------- hook: "ANTOJO de una miche" hits the screen -------------
+HOOK = 2.0
+CUPS_H = R.scaled(R.CUPS, 840)
+MASC_H = R.scaled(R.MASCOT, 560)
+def _burst(rx=500, ry=290, spikes=18):
+    """Comic-style yellow explosion behind the word ANTOJO."""
+    if "burst" in _k: return _k["burst"]
+    s = 2; w, h = int(rx * 2 + 60), int(ry * 2 + 60)
+    im = Image.new("RGBA", (w * s, h * s), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    def poly(scale):
+        pts = []
+        for i in range(spikes * 2):
+            a = math.pi * i / spikes; r = 1.0 if i % 2 == 0 else 0.74
+            pts.append((w * s / 2 + math.cos(a) * rx * s * r * scale, h * s / 2 + math.sin(a) * ry * s * r * scale))
+        return pts
+    d.polygon(poly(1.0), fill=DARK); d.polygon(poly(0.94), fill=YEL)
+    _k["burst"] = im.resize((w, h), Image.LANCZOS); return _k["burst"]
+
+def sacudida(t, golpes):
+    """Screen shake: (dx, dy, zoom) from a list of hits (start time, strength in px)."""
+    dx = dy = punch = 0.0
+    for t0, amp in golpes:
+        a = t - t0
+        if 0 <= a < 0.45:
+            e = math.exp(-a * 9)
+            dx += amp * e * math.sin(a * 95); dy += amp * 0.7 * e * math.cos(a * 80)
+            punch += 0.06 * (amp / 26) * math.exp(-a * 14)
+    return dx, dy, punch
+def aplicar_sacudida(c, t, golpes):
+    dx, dy, punch = sacudida(t, golpes)
+    if abs(dx) < 0.5 and abs(dy) < 0.5 and punch < 0.002: return c
+    z = 1 + punch + 2.3 * max(abs(dx) / W, abs(dy) / H)          # zoom just enough to hide the edges
+    return c.transform((W, H), Image.AFFINE, (1 / z, 0, W / 2 - (W / 2 + dx) / z, 0, 1 / z, H / 2 - (H / 2 + dy) / z), Image.BILINEAR)
+
+_rnd = random.Random(7)
+CHISPAS = [dict(a=math.radians(_rnd.uniform(-165, -15)), v=_rnd.uniform(900, 1700), r=_rnd.uniform(12, 26),
+                x=_rnd.uniform(-160, 160), col=_rnd.choice([YEL, WHITE, DARK, (140, 200, 60)]), sq=_rnd.random() < 0.4,
+                rot=_rnd.uniform(0, 6)) for _ in range(30)]
+def chispas(c, t, t0, ox, oy):
+    """Burst of chamoy/chile/lime bits flying out of the cups."""
+    a = t - t0
+    if not 0 < a < 1.0: return
+    d = ImageDraw.Draw(c)
+    for p in CHISPAS:
+        x = ox + p["x"] + math.cos(p["a"]) * p["v"] * a
+        y = oy + math.sin(p["a"]) * p["v"] * a + 2600 * a * a
+        r = p["r"] * (1 - a * 0.6)
+        if p["sq"]:
+            q = p["rot"] + a * 9
+            pts = [(x + r * math.cos(q + k * math.pi / 2), y + r * math.sin(q + k * math.pi / 2)) for k in range(4)]
+            d.polygon(pts, fill=p["col"], outline=DARK)
+        else:
+            d.ellipse([x - r, y - r, x + r, y + r], fill=p["col"], outline=DARK, width=3)
+
+HOOK_GOLPES = [(0.16, 30), (0.52, 16), (0.82, 10)]
 def sceneHook(t):
     c = R.pattern_bg(R.ZZ_RED, t, speed=90)
-    sh = math.sin(t * 90) * 16 * (1 - prog(t, 0.2, 0.25)) if t > 0.2 else 0      # impact shake
-    p = prog(t, 0, 0.22)
-    sc = lerp(2.6, 1.0, ease_out(p)) if p < 1 else 1 + 0.05 * math.sin((t - 0.22) * 10) * math.exp(-(t - 0.22) * 4)
-    R.paste(c, LOGO_H, W / 2 + sh, 330 + sh * 0.5, sc, alpha=clamp(p * 3))
-    R.paste(c, brand_line("Ven por la tuya", 130, YEL, bang=True), W / 2 + sh, 700, back_out(prog(t, 0.3, 0.3)))
-    R.paste(c, P.label("Te decimos cómo llegar", 56, DARK, YEL), W / 2, 870, back_out(prog(t, 0.5, 0.3)))
-    q = prog(t, 0.35, 0.4)
-    R.shadow_ellipse(c, W / 2, 1790, 260 * q, 34)
-    R.paste(c, MASC_H, W / 2, lerp(H + 500, 1400, ease_out(q)) + (math.sin((t - 0.75) * 6) * 8 if t > 0.75 else 0))
+    # ANTOJO + yellow burst slam in from huge
+    p = prog(t, 0, 0.16)
+    sc = lerp(3.2, 1.0, ease_out(p)) if p < 1 else 1 + 0.02 * math.sin((t - 0.16) * 7)
+    R.paste(c, _burst(), W / 2, 360, sc * 1.02, alpha=clamp(p * 4), rot=math.sin(t * 1.5) * 3)
+    R.paste(c, brand_line("ANTOJO", 260, RED, 12, maxw=880), W / 2, 355, sc, alpha=clamp(p * 4))
+    R.paste(c, brand_line("de una", 116, YEL, 8), W / 2, 748, back_out(prog(t, 0.28, 0.2)))
+    q = prog(t, 0.4, 0.12)
+    R.paste(c, brand_line("miche", 230, WHITE, 12), W / 2, 900, lerp(2.2, 1.0, ease_out(q)) if q < 1 else 1.0, alpha=clamp(q * 4))
+    # cups jump in from the bottom, the mascot slides in next to them
+    u = prog(t, 0.55, 0.32)
+    if u > 0:
+        R.shadow_ellipse(c, 670, 1830, 330 * u, 40)
+        bob = math.sin((t - 0.9) * 5) * 10 if t > 0.9 else 0
+        R.paste(c, CUPS_H, 670, lerp(H + 500, 1490, back_out(u, 1.4)) + bob, rot=math.sin(t * 3) * 2)
+        chispas(c, t, 0.82, 670, 1110)
+    m = prog(t, 0.8, 0.3)
+    if m > 0:
+        R.paste(c, MASC_H, lerp(-350, 215, back_out(m, 1.5)), 1580 + math.sin((t - 1.1) * 6) * 8, rot=lerp(25, 0, ease_out(m)))
+    c = aplicar_sacudida(c, t, HOOK_GOLPES)
+    fl = 1 - prog(t, 0.16, 0.12)                                  # white flash on the first hit
+    if t >= 0.16 and fl > 0:
+        c.alpha_composite(Image.new("RGBA", (W, H), WHITE + (int(170 * fl),)))
     return c
 def _hook_last():
     if "hook" not in _k: _k["hook"] = sceneHook(HOOK - 1 / FPS)
@@ -452,7 +518,7 @@ def render(name, fn, t0, dur):
 
 if __name__ == "__main__":
     if sys.argv[1] == "frames":
-        shots = [(sceneHook, 0.9), (sceneMap, 1.0)] + [(sceneMap, T_R[i] + 2.0) for i in range(NR)] + [(sceneMap, T_END + 2.8)]
+        shots = [(sceneHook, 0.2), (sceneHook, 1.4), (sceneMap, 1.0)] + [(sceneMap, T_R[i] + 2.0) for i in range(NR)] + [(sceneMap, T_END + 2.8)]
         s = Image.new("RGB", (360 * len(shots), 640))
         for i, (fn, t) in enumerate(shots):
             s.paste(fn(t).convert("RGB").resize((360, 640)), (i * 360, 0))

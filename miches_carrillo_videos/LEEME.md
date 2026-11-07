@@ -3,7 +3,7 @@
 Código para generar los dos videos verticales (1080×1920, 30 fps, sin audio):
 
 - **Miches_Carrillo_promo.mp4**: promocional de 15 s con los vasos de fruta.
-- **Miches_Carrillo_como_llegar.mp4**: mapa animado de unos 17 s con la dirección, las referencias y las rutas a la sucursal.
+- **Miches_Carrillo_como_llegar.mp4**: mapa animado de unos 18 s con la dirección, las referencias y las rutas a la sucursal.
 
 Los videos no se hacen con inteligencia artificial: el código dibuja cada cuadro (con Pillow) y ffmpeg los une en el MP4.
 
@@ -41,7 +41,7 @@ Revisa primero la vista previa (`vista_previa_*.jpg`) después de cada cambio; g
 | Calles del mapa | `video_como_llegar.py` | listas `AVM_SB`, `PRIS`, etc. (coordenadas tomadas de la captura de Google Maps) |
 | Calles sin salida | `video_como_llegar.py` | lista `SIN_SALIDA` |
 | Tarjeta final "Te esperamos" | `video_como_llegar.py` | función `tarjeta_final` |
-| Gancho inicial (primer segundo y medio) | `video_como_llegar.py` | función `sceneHook` |
+| Gancho inicial "ANTOJO de una miche" (primeros 2 s) | `video_como_llegar.py` | función `sceneHook`; sacudidas en `HOOK_GOLPES` y `MAPA_GOLPES` |
 
 Las calles que terminan sueltas se alargan solas hasta la calle más cercana o el borde del mapa, para que no se vean cortadas. Si una calle de verdad no tiene salida, agrégala a `SIN_SALIDA`.
 
