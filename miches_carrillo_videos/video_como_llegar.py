@@ -50,6 +50,8 @@ RAMPA_NE2 = [(1025, 530), (1070, 524)]
 # Streets that really end without an exit (per Google Maps): they are not extended
 SIN_SALIDA = [TOP_BLOCK, ARR_COZ, ARR_CERRADA, RAMPA_NE, RAMPA_NE2]
 
+CANCHA = ((475, 772), (615, 858))      # soccer fields of the Penalty, between Av. México and Priv. Prisciliano Sánchez
+
 ONE_WAY = [AVM_SB, AVM_NB, UPPER_W, LOWER_E, LAGO_ERIE, RIO_VOLGA, ARR_CORAL]
 
 def chevrons(d, pts, every=150, size=7):
@@ -130,6 +132,12 @@ def build_map():
         for gy in range(Y0, Y1, 46):
             x, y = M((gx + 6, gy + 6))
             d.rounded_rectangle([x, y, x + 34 * S, y + 34 * S], radius=6 * S, fill=(255, 212, 50, 255))
+    (fx0, fy0), (fx1, fy1) = M(CANCHA[0]), M(CANCHA[1])          # Penalty Vallarta Futbol Club
+    d.rounded_rectangle([fx0, fy0, fx1, fy1], radius=8 * S, fill=(88, 160, 70), outline=DARK, width=int(4 * S))
+    mx, my, pad = (fx0 + fx1) / 2, (fy0 + fy1) / 2, 9 * S
+    d.rectangle([fx0 + pad, fy0 + pad, fx1 - pad, fy1 - pad], outline=WHITE, width=int(2 * S))
+    d.line([mx, fy0 + pad, mx, fy1 - pad], fill=WHITE, width=int(2 * S))
+    d.ellipse([mx - 12 * S, my - 12 * S, mx + 12 * S, my + 12 * S], outline=WHITE, width=int(2 * S))
     roads = [(p, 9) for p in (WEST_ST, AVM_LOOP, VALL750, EAST_ST, TOP_BLOCK, ARR_COZ, ARR_CORAL, RIO_DIAM, RIO_VOLGA, CENTRIKA, LAGO_ERIE,
                               ARR_NORTE, ARR_CERRADA, AVM_SERV, CENTRIKA_V, DIAM_E2, DIAM_E3, DIAM_DIAG, C_R, RAMPA_NE, RAMPA_NE2)]
     roads += [(SOUTH_RD, 12), (PRIS, 13), (UPPER_W, 12), (LOWER_E, 12), (AVM_SB, 13), (AVM_NB, 13), (AVM_S, 20)]
@@ -157,17 +165,24 @@ COLONIA = "Col. Los Tabachines"
 REFERENCIAS = ["Atrás del Penalty", "Enfrente de Bar El Tropi"]
 
 # ------------- routes (only legal moves per the one-way arrows) -------------
-PIN = (608, 1036)   # the spot marked on Priv. Prisciliano Sánchez
-TO_PIN = [(660, 652), (790, 642), (812, 655), (760, 750), (700, 860), (640, 975), PIN]
+# positions from the coordinates (TomTom / Google Maps), fitted to this map with recursos/rutas_tomtom.json
+PIN = (690, 932)        # Miches Carrillo (20.6539507, -105.2278484), east side of Priv. Prisciliano Sánchez
+PIN_ROAD = (662, 932)   # the street in front of it, where the routes end
+TROPI = (626, 931)      # El Tropi Sport Bar & Club, across the street
+PENALTY = (545, 815)    # Penalty Vallarta Futbol Club (the soccer fields)
+FROM_NORTH_END = [(660, 652), (790, 642), (812, 655), (760, 750), (700, 860), PIN_ROAD]
 # each step: (route point where its card appears, text, icon "recto" | "der" | "izq")
 ROUTES = [
-    dict(name="Desde el sur", pts=[(388, 1560), (393, 1300), (398, 1168), (430, 1000), (437, 800), (440, 652)] + TO_PIN,
-         steps=[(0, "Sube por Av. México", "recto"), (5, "Gira a la derecha en Av. Prisciliano Sánchez", "der"),
-                (7, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
-    dict(name="Desde el poniente", pts=[(-40, 636), (200, 636), (400, 637), (440, 652)] + TO_PIN,
+    dict(name="Desde el poniente", desde="Aeropuerto · Galerías Vallarta",
+         pts=[(-40, 636), (200, 636), (400, 637), (440, 652)] + FROM_NORTH_END,
          steps=[(0, "Avanza por Av. Prisciliano Sánchez", "recto"), (2, "Cruza Av. México y sigue derecho", "recto"),
                 (5, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
-    dict(name="Desde el norte", pts=[(530, 330), (522, 420), (505, 500), (470, 560), (430, 605), (412, 640), (440, 652)] + TO_PIN,
+    dict(name="Desde el sur", desde="Malecón · UNE",
+         pts=[(384, 1700), (385, 1582), (459, 1587), (475, 1460), (500, 1360), (530, 1250), (566, 1145), (595, 1060), (640, 975), PIN_ROAD],
+         steps=[(0, "Sube por Av. México", "recto"), (1, "Gira a la derecha en María Montessori", "der"),
+                (2, "Gira a la izquierda en Priv. Prisciliano Sánchez", "izq")]),
+    dict(name="Desde el norte", desde="UNIVA",
+         pts=[(530, 330), (522, 420), (505, 500), (470, 560), (430, 605), (412, 640), (440, 652)] + FROM_NORTH_END,
          steps=[(0, "Baja por Av. México", "recto"), (5, "Gira a la izquierda en Av. Prisciliano Sánchez", "izq"),
                 (8, "Gira a la derecha en Priv. Prisciliano Sánchez", "der")]),
 ]
@@ -290,7 +305,6 @@ T_END = OV + NR * RT
 MAPDUR = T_END + OUT
 CLOSE = (PIN[0], PIN[1] - 20, 1.9)            # opening close-up on the pin
 FINAL = (PIN[0] - 130 / 2.2, PIN[1] - 220 / 2.2, 2.2)
-IRIS = 0.35                                    # circle wipe from the hook into the map
 def mix(a, b, x): return tuple(lerp(a[i], b[i], x) for i in range(3))
 def clamp_cam(cam):
     cx, cy, k = cam
@@ -316,8 +330,8 @@ def step_at(i, t):
     for j, fr in enumerate(ROUTES[i]["fr"]):
         if f >= fr - 0.015: n = j
     return n
-RIPPLES = [0.4, 0.95, T_END + 0.9, T_END + 1.6, T_END + 2.3]
-MAPA_GOLPES = [(0.38, 14), (T_END + 0.58, 10)]           # pin lands, final logo lands
+RIPPLES = [0.05, 0.6, T_END + 0.9, T_END + 1.6, T_END + 2.3]
+MAPA_GOLPES = [(0.0, 14), (T_END + 0.58, 10)]            # the zoom lands on the pin, final logo lands
 
 def sceneMap(t):
     cam = cam_at(t); k = cam[2]
@@ -332,6 +346,11 @@ def sceneMap(t):
     put("Arrecifes de Cozumel", (483, 170), 90, 24)
     put("Lago Erie", (712, 1440), 86, 26); put("Río Volga", (850, 1300), -5, 26)
     put("Río de Diamante", (880, 960), 53, 24)
+    sp = to_screen(PENALTY, cam); R.paste(c, P.label("Penalty", 30, WHITE, (40, 100, 30)), sp[0], sp[1], ls)
+    st = to_screen(TROPI, cam); rr = 15 * ls; d = ImageDraw.Draw(c)
+    d.ellipse([st[0] - rr - 5, st[1] - rr - 5, st[0] + rr + 5, st[1] + rr + 5], fill=DARK)
+    d.ellipse([st[0] - rr, st[1] - rr, st[0] + rr, st[1] + rr], fill=YEL)
+    tl = P.label("El Tropi", 28, WHITE, DARK); R.paste(c, tl, st[0] - (tl.width / 2 + 26) * ls, st[1], ls)
     # routes: the current one bright with an arrow at its tip, the finished ones faded
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
     d = ImageDraw.Draw(c)
@@ -355,9 +374,9 @@ def sceneMap(t):
                     (b[0] - ux * 14 * sz - uy * 18 * sz, b[1] - uy * 14 * sz + ux * 18 * sz),
                     (b[0] - ux * 14 * sz + uy * 18 * sz, b[1] - uy * 14 * sz - ux * 18 * sz)]
         d.polygon(tri(s * 1.45), fill=DARK); d.polygon(tri(s), fill=YEL)
-    # pin: drops in with a bounce, pulses when a route arrives, ripples on the ground
+    # pin: pulses when a route arrives, ripples on the ground
     s = to_screen(PIN, cam); pin = P.pin_sprite(); sc = 1.4
-    pp = prog(t, 0.2, 0.4)
+    pp = 1.0
     if pp > 0:
         rp = Image.new("RGBA", (W, H), (0, 0, 0, 0)); rd = ImageDraw.Draw(rp)
         for t0 in RIPPLES:
@@ -391,11 +410,7 @@ def sceneMap(t):
         if T_R[i] <= t < T_R[i] + RT:
             out = prog(t, T_R[i] + RT - 0.22, 0.22)
             R.paste(c, P.header(r["name"]), W / 2, 220, back_out(prog(t, T_R[i] + 0.1, 0.35)) * (1 - out))
-            for j in range(NR):
-                x = W / 2 + (j - (NR - 1) / 2) * 56; on = j == i; rr = 17 if on else 12
-                d = ImageDraw.Draw(c)
-                d.ellipse([x - rr - 5, 360 - rr - 5, x + rr + 5, 360 + rr + 5], fill=DARK)
-                d.ellipse([x - rr, 360 - rr, x + rr, 360 + rr], fill=RED if on else WHITE)
+            R.paste(c, P.label(r["desde"], 44, YEL, DARK), W / 2, 356, back_out(prog(t, T_R[i] + 0.2, 0.35)) * (1 - out))
             if t >= T_R[i] + DRAW_A - 0.3:
                 n = step_at(i, t)
                 since = 0.0                     # how long ago the card changed (pop effect)
@@ -411,13 +426,6 @@ def sceneMap(t):
         R.paste(c, P._c.setdefault("msm", R.scaled(R.MASCOT, 480)), lerp(-300, 220, ease_out(prog(u, 0.45, 0.45))), 1250 + math.sin(u * 4) * 8)
         R.paste(c, tarjeta_final(), W / 2, lerp(H + 300, 1690, ease_out(prog(u, 0.15, 0.35))))
     c = aplicar_sacudida(c, t, MAPA_GOLPES)
-    # circle wipe out of the hook
-    if t < IRIS:
-        rr = 1400 * ease_in_out(t / IRIS)
-        mask = Image.new("L", (W, H), 255); md = ImageDraw.Draw(mask)
-        md.ellipse([s[0] - rr, 1000 - rr, s[0] + rr, 1000 + rr], fill=0)
-        c = Image.composite(_hook_last(), c, mask)
-        ImageDraw.Draw(c).ellipse([s[0] - rr, 1000 - rr, s[0] + rr, 1000 + rr], outline=DARK, width=18)
     return c
 
 # ------------- hook: "ANTOJO de una miche" (gancho.py, can also be rendered on its own) -------------
@@ -445,8 +453,140 @@ def aplicar_sacudida(c, t, golpes):
     z = 1 + punch + 2.3 * max(abs(dx) / W, abs(dy) / H)          # zoom just enough to hide the edges
     return c.transform((W, H), Image.AFFINE, (1 / z, 0, W / 2 - (W / 2 + dx) / z, 0, 1 / z, H / 2 - (H / 2 + dy) / z), Image.BILINEAR)
 
+# ------------- city view: real routes from TomTom, then a zoom down to the pin -------------
+import json
+_TT = json.load(open(os.path.join(DIR, "recursos", "rutas_tomtom.json"), encoding="utf-8"))
+_LAT0, _LON0 = _TT["control"][0]["lat"], _TT["control"][0]["lon"]
+def _geo_m(lon, lat):
+    """Metres east / south of the first control point."""
+    return ((lon - _LON0) * 111320 * math.cos(math.radians(_LAT0)), -(lat - _LAT0) * 110740)
+def _solve3(Mx, v):
+    det = lambda m: (m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0])
+                     + m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]))
+    D = det(Mx); out = []
+    for j in range(3):
+        mj = [[v[i] if c == j else Mx[i][c] for c in range(3)] for i in range(3)]
+        out.append(det(mj) / D)
+    return out
+def _fit_affine():
+    """Least-squares affine map units -> metres over the control points (streets known in both)."""
+    rows = [(c["mapa"][0], c["mapa"][1], 1.0) for c in _TT["control"]]
+    tgt = [_geo_m(c["lon"], c["lat"]) for c in _TT["control"]]
+    AtA = [[sum(r[i] * r[j] for r in rows) for j in range(3)] for i in range(3)]
+    cols = []
+    for k in range(2):
+        Atb = [sum(r[i] * t[k] for r, t in zip(rows, tgt)) for i in range(3)]
+        cols.append(_solve3(AtA, Atb))
+    return cols                     # metres = (a*x + b*y + c, d*x + e*y + f)
+(_a, _b, _c), (_d, _e, _f) = _fit_affine()
+_det = _a * _e - _b * _d
+def geo_mapa(lon, lat):
+    """Longitude/latitude -> units of this map."""
+    me, ms = _geo_m(lon, lat); me -= _c; ms -= _f
+    return ((_e * me - _b * ms) / _det, (-_d * me + _a * ms) / _det)
+
+LEJOS_RUTAS = []
+for o in _TT["origenes"]:
+    pts = [geo_mapa(*q) for q in o["ruta"]] + [PIN_ROAD]
+    seg = [math.dist(pts[i], pts[i + 1]) for i in range(len(pts) - 1)]
+    LEJOS_RUTAS.append(dict(nombre=o["nombre"], minutos=round(o["segundos"] / 60), pts=pts, seg=seg, total=sum(seg)))
+
+LEJOS = 4.4                                    # city view duration
+DIVE = 2.55                                    # when the zoom towards the pin starts
+_xs = [q[0] for r in LEJOS_RUTAS for q in r["pts"]]; _ys = [q[1] for r in LEJOS_RUTAS for q in r["pts"]]
+_K0 = min(880 / (max(_xs) - min(_xs)), 1330 / (max(_ys) - min(_ys)))
+CAM_LEJOS = ((max(_xs) + min(_xs)) / 2, (max(_ys) + min(_ys)) / 2 - 75 / _K0, _K0)   # leaves room for the title
+def cam_lejos(u):
+    x = ease_in_out(prog(u, DIVE, LEJOS - DIVE))
+    k0, k1 = CAM_LEJOS[2], CLOSE[2]
+    k = k0 * (k1 / k0) ** x
+    w = (1 / k0 - 1 / k) / (1 / k0 - 1 / k1)        # keeps the zoom heading straight for the pin
+    return (lerp(CAM_LEJOS[0], CLOSE[0], w), lerp(CAM_LEJOS[1], CLOSE[1], w), k), w
+
+def chip_origen(nombre, minutos):
+    """Dark pill: place name in white, driving time in yellow."""
+    key = ("orig", nombre, minutos)
+    if key in _k: return _k[key]
+    f = _font(46); t1, t2 = nombre, f"{minutos} min"
+    w1, w2 = f.getlength(t1), f.getlength(t2); h = 78
+    w = int(w1 + w2 + 26 + 56)
+    im = Image.new("RGBA", (w + 8, h + 8), (0, 0, 0, 0)); d = ImageDraw.Draw(im)
+    d.rounded_rectangle([8, 8, w + 7, h + 7], radius=h // 2, fill=RED)
+    d.rounded_rectangle([0, 0, w, h], radius=h // 2, fill=DARK)
+    bb = f.getbbox(t1); y = h / 2 - (bb[1] + bb[3]) / 2
+    d.text((28, y), t1, font=f, fill=WHITE); d.text((28 + w1 + 26, y), t2, font=f, fill=YEL)
+    _k[key] = im; return im
+
+LEJOS_GOLPES = [(0.42, 16)]                     # the pin lands on the city
+def sceneLejos(u):
+    cam, w = cam_lejos(u); k = cam[2]
+    c = R.pattern_bg(R.ZZ_YEL, u + HOOK)
+    a_det = ease_in_out(prog(k, 0.8, 0.8))         # the neighbourhood map fades in near the end of the zoom
+    if a_det > 0:
+        det = view(cam)
+        if a_det < 0.999: det.putalpha(det.getchannel("A").point(lambda v: int(v * a_det)))
+        c.alpha_composite(det)
+    lay = c if a_det <= 0 else Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(lay)
+    rw = max(11, int(14 * k))
+    scr = [[to_screen(q, cam) for q in r["pts"]] for r in LEJOS_RUTAS]
+    for pts in scr: road_line(d, pts, DARK, rw + 8)
+    for pts in scr: road_line(d, pts, WHITE, rw)
+    lw = max(9, int(9 * k)); heads = []
+    for i, r in enumerate(LEJOS_RUTAS):
+        f = ease_in_out(prog(u, 0.5 + 0.16 * i, 1.55))
+        if f <= 0: continue
+        pts = [to_screen(q, cam) for q in route_upto(r, f)]
+        road_line(d, pts, DARK, lw + 8); road_line(d, pts, RED, lw)
+        if f < 1 and len(pts) >= 2: heads.append((pts[-2], pts[-1]))
+    for a, b in heads:
+        L = math.dist(a, b) or 1; ux, uy = (b[0] - a[0]) / L, (b[1] - a[1]) / L
+        def tri(sz):
+            return [(b[0] + ux * 24 * sz, b[1] + uy * 24 * sz),
+                    (b[0] - ux * 14 * sz - uy * 18 * sz, b[1] - uy * 14 * sz + ux * 18 * sz),
+                    (b[0] - ux * 14 * sz + uy * 18 * sz, b[1] - uy * 14 * sz - ux * 18 * sz)]
+        d.polygon(tri(1.3), fill=DARK); d.polygon(tri(0.9), fill=YEL)
+    chips_out = 1 - prog(u, DIVE, 0.3)
+    for i, r in enumerate(LEJOS_RUTAS):         # start points with name and driving time
+        o = scr[i][0]; q = back_out(prog(u, 0.5 + 0.16 * i, 0.3))
+        if q <= 0 or chips_out <= 0: continue
+        rr = 13; d.ellipse([o[0] - rr - 5, o[1] - rr - 5, o[0] + rr + 5, o[1] + rr + 5], fill=DARK)
+        d.ellipse([o[0] - rr, o[1] - rr, o[0] + rr, o[1] + rr], fill=WHITE)
+        ch = chip_origen(r["nombre"], r["minutos"])
+        x = clamp(o[0], ch.width / 2 + 16, W - ch.width / 2 - 16); y = max(330, o[1] - 62)
+        R.paste(lay, ch, x, y, q * chips_out)
+    if lay is not c and a_det < 0.999:         # city layer fades out while the neighbourhood map fades in
+        lay.putalpha(lay.getchannel("A").point(lambda v: int(v * (1 - a_det))))
+        c.alpha_composite(lay)
+    # pin: falls on the city, then grows with the zoom
+    s = to_screen(PIN, cam); pin = P.pin_sprite(); sc = lerp(0.85, 1.4, w)
+    pp = prog(u, 0.12, 0.3)
+    if pp > 0:
+        rp = Image.new("RGBA", (W, H), (0, 0, 0, 0)); rd = ImageDraw.Draw(rp)
+        for t0 in (0.42, 1.0, 1.6):
+            a = u - t0
+            if 0 < a < 1.0:
+                rr = lerp(20, 170, ease_out(a))
+                rd.ellipse([s[0] - rr, s[1] - rr * 0.42, s[0] + rr, s[1] + rr * 0.42], outline=RED + (int(230 * (1 - a)),), width=8)
+        c.alpha_composite(rp)
+        y = lerp(s[1] - 1100, s[1] - pin.height / 2 * sc + 8, back_out(pp, 1.2))
+        sh = Image.new("RGBA", (200, 70), (0, 0, 0, 0)); ImageDraw.Draw(sh).ellipse([20, 15, 180, 55], fill=DARK + (110,))
+        c.alpha_composite(sh.filter(ImageFilter.GaussianBlur(6)).resize((int(200 * sc / 1.4), int(70 * sc / 1.4))),
+                          (int(s[0] - 100 * sc / 1.4), int(s[1] - 35 * sc / 1.4)))
+        R.paste(c, pin, s[0], y, sc)
+    R.paste(c, brand_line("Te queda cerca", 124, WHITE), W / 2, 185,
+            back_out(prog(u, 0.3, 0.35)) * (1 - ease_in_out(prog(u, DIVE, 0.3))))
+    c = aplicar_sacudida(c, u, LEJOS_GOLPES)
+    if u < 0.35:                               # circle wipe out of the hook
+        rr = 1400 * ease_in_out(u / 0.35)
+        mask = Image.new("L", (W, H), 255); md = ImageDraw.Draw(mask)
+        md.ellipse([s[0] - rr, s[1] - rr, s[0] + rr, s[1] + rr], fill=0)
+        c = Image.composite(_hook_last(), c, mask)
+        ImageDraw.Draw(c).ellipse([s[0] - rr, s[1] - rr, s[0] + rr, s[1] + rr], outline=DARK, width=18)
+    return c
+
 CH = MAPDUR / 3
-SCENES = [("q0", sceneHook, 0, HOOK)] + [(f"q{i+1}", sceneMap, i * CH, CH) for i in range(3)]
+SCENES = [("q0", sceneHook, 0, HOOK), ("qa", sceneLejos, 0, LEJOS)] + [(f"q{i+1}", sceneMap, i * CH, CH) for i in range(3)]
 
 def render(name, fn, t0, dur):
     tmp = os.path.join(DIR, name + ".tmp.mp4"); out = os.path.join(DIR, name + ".mp4")
@@ -459,12 +599,12 @@ def render(name, fn, t0, dur):
 
 if __name__ == "__main__":
     if sys.argv[1] == "frames":
-        shots = [(sceneHook, 0.4), (sceneHook, 2.0), (sceneMap, 0.2), (sceneMap, 1.0)] + [(sceneMap, T_R[i] + 2.0) for i in range(NR)] + [(sceneMap, T_END + 2.8)]
+        shots = [(sceneHook, 1.6), (sceneLejos, 0.6), (sceneLejos, 2.3), (sceneLejos, 3.5), (sceneLejos, 4.1), (sceneMap, 1.0)] + [(sceneMap, T_R[i] + 2.0) for i in range(NR)] + [(sceneMap, T_END + 2.8)]
         s = Image.new("RGB", (360 * len(shots), 640))
         for i, (fn, t) in enumerate(shots):
             s.paste(fn(t).convert("RGB").resize((360, 640)), (i * 360, 0))
         s.save(os.path.join(DIR, "vista_previa_como_llegar.jpg"), quality=85)
-        print("Duración total: %.1f s" % (HOOK + MAPDUR))
+        print("Duración total: %.1f s" % (HOOK + LEJOS + MAPDUR))
     else:
         for nm, fn, t0, dur in SCENES:
             if nm == sys.argv[1]: render(nm, fn, t0, dur)

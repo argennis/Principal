@@ -3,7 +3,7 @@
 Código para generar los dos videos verticales (1080×1920, 30 fps, sin audio):
 
 - **Miches_Carrillo_promo.mp4**: promocional de 15 s con los vasos de fruta.
-- **Miches_Carrillo_como_llegar.mp4**: video de unos 18 s: abre con el gancho "ANTOJO de una miche" y luego muestra en el mapa la dirección, las referencias y las rutas a la sucursal.
+- **Miches_Carrillo_como_llegar.mp4**: video de unos 22 s: abre con el gancho "ANTOJO de una miche", muestra la ciudad con las rutas reales desde el Malecón, el Aeropuerto, Galerías Vallarta, UNE y UNIVA (con su tiempo en coche), baja con un zoom hasta el local y termina con la dirección, las referencias y las rutas de la colonia.
 
 Los videos no se hacen con inteligencia artificial: el código dibuja cada cuadro (con Pillow) y ffmpeg los une en el MP4.
 
@@ -34,6 +34,8 @@ Revisa primero la vista previa (`vista_previa_*.jpg`) después de cada cambio; g
 | Textos del promocional | `video_promo.py` | funciones `scene1` a `scene4` |
 | Ingredientes en las etiquetas | `video_promo.py` | lista `TAGS` |
 | Duración de cada escena | `video_promo.py` | lista `SCENES` (segundos) |
+| Puntos de inicio de la vista de ciudad (nombre, tiempo, ruta) | `recursos/rutas_tomtom.json` | lista `origenes` |
+| Ubicación del local, El Tropi y las canchas del Penalty | `video_como_llegar.py` | `PIN`, `TROPI`, `PENALTY`, `CANCHA` |
 | Dirección y referencias (Penalty, Bar El Tropi) | `video_como_llegar.py` | `DIRECCION`, `COLONIA`, `REFERENCIAS` al inicio de las rutas |
 | Rutas, pasos y títulos del mapa | `video_como_llegar.py` | lista `ROUTES` (cada paso lleva su flecha: `recto`, `der` o `izq`) |
 | Duración de cada parte | `video_como_llegar.py` | `HOOK`, `OV`, `RT`, `OUT` |
@@ -60,5 +62,6 @@ Cada ruta en `ROUTES` tiene sus puntos (`pts`) y sus pasos: el número junto a c
 - `video_promo.py`: colores, tipografía, recursos y funciones compartidas (texto, fondos con zigzag, sombras), más las 4 escenas del promocional.
 - `mapa_comun.py`: piezas del mapa que se reutilizan (pin con el monograma, tarjetas de pasos, títulos, intro con la mascota).
 - `video_como_llegar.py`: el mapa calcado de la captura, las rutas, la cámara y la escena final.
+- `recursos/rutas_tomtom.json`: rutas reales de TomTom (con tráfico histórico) desde cada punto de inicio hasta Miches Carrillo, y las esquinas que ligan esas coordenadas con el mapa de la colonia (`control`). El video no necesita internet: lee este archivo. Para cambiar un punto de inicio hay que pedir su ruta nueva a TomTom.
 - `gancho.py`: el inicio "ANTOJO de una miche". El video de cómo llegar lo usa como primera parte; también se puede generar solo con `python3 gancho.py` (o `python3 gancho.py vista`).
 - `generar.py`: genera cada parte en paralelo y las une sin volver a codificar.
