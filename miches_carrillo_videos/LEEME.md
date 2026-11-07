@@ -3,7 +3,7 @@
 Código para generar los dos videos verticales (1080×1920, 30 fps, sin audio):
 
 - **Miches_Carrillo_promo.mp4**: promocional de 15 s con los vasos de fruta.
-- **Miches_Carrillo_como_llegar.mp4**: mapa animado de unos 18 s que abre con el gancho "ANTOJO de una miche" con la dirección, las referencias y las rutas a la sucursal.
+- **Miches_Carrillo_como_llegar.mp4**: video de unos 18 s: abre con el gancho "ANTOJO de una miche" y luego muestra en el mapa la dirección, las referencias y las rutas a la sucursal.
 
 Los videos no se hacen con inteligencia artificial: el código dibuja cada cuadro (con Pillow) y ffmpeg los une en el MP4.
 
