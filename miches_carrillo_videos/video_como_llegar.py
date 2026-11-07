@@ -26,7 +26,7 @@ SOUTH_RD = [(-160, 1592), (385, 1580), (460, 1588), (600, 1610), (920, 1650), (1
 LAGO_ERIE = [(686, 1860), (686, 1600), (705, 1360), (723, 1262), (751, 1169)]       # northbound
 CENTRIKA = [(751, 1169), (920, 1158), (1080, 1155)]
 RIO_VOLGA = [(1080, 1340), (920, 1325), (723, 1302)]                                 # westbound
-RIO_DIAM = [(1080, 700), (920, 914), (788, 1089)]
+RIO_DIAM = [(1080, 700), (920, 914), (788, 1089), (751, 1169)]   # ends at the Lago Erie / Centrika corner
 C_RIO = []
 ARR_CORAL = [(179, -60), (179, 278), (155, 393), (123, 455), (123, 535), (141, 606)]  # southbound
 ARR_COZ = [(483, -60), (483, 278), (465, 384), (418, 468), (354, 513), (280, 535)]
@@ -35,6 +35,20 @@ WEST_ST = [(-160, 455), (123, 455)]
 AVM_LOOP = [(437, 935), (497, 935), (488, 1041), (437, 1041)]
 VALL750 = [(15, 640), (8, 900), (-20, 1250)]
 EAST_ST = [(700, 1455), (920, 1480), (1080, 1488)]
+# added from the newer Google Maps screenshot
+ARR_NORTE = [(174, 300), (480, 297)]                                  # joins Arrecifes del Coral and Arrecifes de Cozumel
+ARR_CERRADA = [(287, 400), (457, 398)]                                # comes off Cozumel, dead end
+AVM_SERV = [(334, 637), (336, 728), (414, 730)]                       # service road west of Av. México
+CENTRIKA_V = [(977, 1157), (965, 1280), (953, 1400), (934, 1655)]     # runs south from Centrika
+DIAM_E2 = [(994, 815), (1080, 819)]                                   # streets east of Río de Diamante
+DIAM_E3 = [(872, 977), (1080, 1001)]
+DIAM_DIAG = [(1080, 900), (1040, 996)]
+C_R = [(793, 1082), (1080, 1126)]
+RAMPA_NE = [(915, 556), (1025, 530), (1070, 499)]                     # fork northeast, both ends are dead ends
+RAMPA_NE2 = [(1025, 530), (1070, 524)]
+
+# Streets that really end without an exit (per Google Maps): they are not extended
+SIN_SALIDA = [TOP_BLOCK, ARR_COZ, ARR_CERRADA, RAMPA_NE, RAMPA_NE2]
 
 ONE_WAY = [AVM_SB, AVM_NB, UPPER_W, LOWER_E, LAGO_ERIE, RIO_VOLGA, ARR_CORAL]
 
@@ -68,16 +82,19 @@ def _nearest_on(pts, p):
 def _on_edge(p, m=2):
     return p[0] <= X0 + m or p[0] >= X1 - m or p[1] <= Y0 + m or p[1] >= Y1 - m
 
-def conectar(roads, max_ext=400, max_snap=150, step=2):
+def conectar(roads, sin_salida=(), max_ext=400, max_snap=150, step=2):
     """Extend each loose end (one that does not touch the map edge or another street)
     in its own direction until it meets the nearest street, then snap it onto that street.
-    If its direction reaches neither, it joins the nearest street (up to max_snap away)."""
-    out = [(list(p), w) for p, w in roads]
-    for i, (pts, w) in enumerate(out):
+    If its direction reaches neither, it joins the nearest street (up to max_snap away).
+    Streets in sin_salida are left as they are (real dead ends)."""
+    fijas = {id(p) for p in sin_salida}
+    out = [(list(p), w, id(p) in fijas) for p, w in roads]
+    for i, (pts, w, fija) in enumerate(out):
+        if fija: continue
         for end in (0, -1):
             p = pts[end]; q = pts[1] if end == 0 else pts[-2]
             if _on_edge(p): continue
-            others = [(o, ow) for j, (o, ow) in enumerate(out) if j != i]
+            others = [(o, ow) for j, (o, ow, _) in enumerate(out) if j != i]
             def closest(x):   # (gap to the edge of the nearest street, point on its centre line)
                 return min(((dn - ow / 2, n) for o, ow in others for n, dn in [_nearest_on(o, x)]), key=lambda c: c[0])
             gap, n = closest(p)
@@ -97,7 +114,7 @@ def conectar(roads, max_ext=400, max_snap=150, step=2):
             if n is None or math.dist(n, p) < 0.5: continue
             if end == 0: pts.insert(0, n)
             else: pts.append(n)
-    return out
+    return [(p, w) for p, w, _ in out]
 
 def road_line(d, pts, fill, width):
     """Line with rounded joints and rounded ends (PIL cuts them flat by default)."""
@@ -113,9 +130,10 @@ def build_map():
         for gy in range(Y0, Y1, 46):
             x, y = M((gx + 6, gy + 6))
             d.rounded_rectangle([x, y, x + 34 * S, y + 34 * S], radius=6 * S, fill=(255, 212, 50, 255))
-    roads = [(p, 9) for p in (WEST_ST, AVM_LOOP, VALL750, EAST_ST, TOP_BLOCK, ARR_COZ, ARR_CORAL, RIO_DIAM, RIO_VOLGA, CENTRIKA, LAGO_ERIE)]
+    roads = [(p, 9) for p in (WEST_ST, AVM_LOOP, VALL750, EAST_ST, TOP_BLOCK, ARR_COZ, ARR_CORAL, RIO_DIAM, RIO_VOLGA, CENTRIKA, LAGO_ERIE,
+                              ARR_NORTE, ARR_CERRADA, AVM_SERV, CENTRIKA_V, DIAM_E2, DIAM_E3, DIAM_DIAG, C_R, RAMPA_NE, RAMPA_NE2)]
     roads += [(SOUTH_RD, 12), (PRIS, 13), (UPPER_W, 12), (LOWER_E, 12), (AVM_SB, 13), (AVM_NB, 13), (AVM_S, 20)]
-    roads = conectar([(p, w) for p, w in roads if len(p) >= 2])
+    roads = conectar([(p, w) for p, w in roads if len(p) >= 2], SIN_SALIDA)
     for pts, w in roads:
         road_line(d, [M(p) for p in pts], DARK, int((w + 6) * S))
     for pts, w in roads:
@@ -134,8 +152,8 @@ def view(cam):
     return MAP.transform((W, H), Image.EXTENT, [(cx - hw - X0) * S, (cy - hh - Y0) * S, (cx + hw - X0) * S, (cy + hh - Y0) * S], Image.BILINEAR)
 
 # ------------- routes (only legal moves per the one-way arrows) -------------
-PIN = (566, 1145)
-TO_PIN = [(660, 652), (790, 642), (812, 655), (760, 750), (700, 860), (640, 975), (595, 1060), (566, 1145)]
+PIN = (608, 1036)   # the spot marked on Priv. Prisciliano Sánchez
+TO_PIN = [(660, 652), (790, 642), (812, 655), (760, 750), (700, 860), (640, 975), PIN]
 ROUTES = [
     dict(name="Desde el sur", pts=[(388, 1560), (393, 1300), (398, 1168), (430, 1000), (437, 800), (440, 652)] + TO_PIN,
          steps=[(0, "Sube por Av. México"), (5, "Gira a la derecha"), (7, "Gira a la derecha en Priv. Prisciliano Sánchez")]),
@@ -194,7 +212,7 @@ def sceneMap(t):
     def put(txt, p, rot, size):
         s = to_screen(p, cam); R.paste(c, P.label(txt, size, DARK), s[0], s[1], ls, rot=rot)
     put("Av. México", (418, 860), 90, 36); put("Av. México", (388, 1420), 90, 36)
-    put("Priv. Prisciliano Sánchez", (690, 885), 62, 30)
+    put("Priv. Prisciliano Sánchez", (533, 1245), 71, 30)
     put("Lago Erie", (712, 1440), 86, 26); put("Río Volga", (850, 1300), -5, 26)
     put("Río de Diamante", (880, 960), 53, 24)
     ov = Image.new("RGBA", (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)

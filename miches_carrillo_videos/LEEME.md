@@ -37,7 +37,10 @@ Revisa primero la vista previa (`vista_previa_*.jpg`) después de cada cambio; g
 | Rutas, pasos y títulos del mapa | `video_como_llegar.py` | lista `ROUTES` |
 | Ubicación del pin | `video_como_llegar.py` | `PIN` |
 | Calles del mapa | `video_como_llegar.py` | listas `AVM_SB`, `PRIS`, etc. (coordenadas tomadas de la captura de Google Maps) |
+| Calles sin salida | `video_como_llegar.py` | lista `SIN_SALIDA` |
 | Tarjeta final "Te esperamos" | `mapa_comun.py` | función `_outro_card` |
+
+Las calles que terminan sueltas se alargan solas hasta la calle más cercana o el borde del mapa, para que no se vean cortadas. Si una calle de verdad no tiene salida, agrégala a `SIN_SALIDA`.
 
 Cada ruta en `ROUTES` tiene sus puntos (`pts`) y sus pasos: el número junto a cada paso es el punto de la ruta donde aparece esa tarjeta.
 
